@@ -2,8 +2,8 @@
 <package >
   <metadata>
     <id>aknudsen.knockoutjs</id>
-    <version>2.2.3</version>
-    <authors>Steve Sanderson</authors>
+    <version>2.3.0pre</version>
+    <authors>Steve Sanderson, Arve Knudsen</authors>
     <owners>Steve Sanderson</owners>
     <licenseUrl>http://opensource.org/licenses/mit-license.php</licenseUrl>
     <projectUrl>http://knockoutjs.com/</projectUrl>

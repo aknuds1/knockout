@@ -110,6 +110,18 @@ describe('Binding: Options', function() {
         expect(testNode.childNodes[0]).toHaveTexts([]);
     });
 
+    it('Should not include the caption if the optionsCaption value is null', function() {
+        testNode.innerHTML = "<select data-bind='options: [\"A\", \"B\"], optionsCaption: null'></select>";
+        ko.applyBindings({}, testNode);
+        expect(testNode.childNodes[0]).toHaveTexts(['A', 'B']);
+    });
+
+    it('Should not include the caption if the optionsCaption value is undefined', function() {
+      testNode.innerHTML = "<select data-bind='options: [\"A\", \"B\"], optionsCaption: test'></select>";
+      ko.applyBindings({ test: ko.observable() }, testNode);
+      expect(testNode.childNodes[0]).toHaveTexts(['A', 'B']);
+    });
+
     it('Should include a caption even if it\'s blank', function() {
         testNode.innerHTML = "<select data-bind='options: [\"A\",\"B\"], optionsCaption: \"\"'></select>";
         ko.applyBindings({}, testNode);
@@ -125,15 +137,15 @@ describe('Binding: Options', function() {
         expect(testNode.childNodes[0].selectedIndex).toEqual(2);
         expect(testNode.childNodes[0]).toHaveTexts(["Initial caption", "A", "B"]);
 
-        // Also show we can update the caption without affecting selection
+        // Show we can update the caption without affecting selection
         myCaption("New caption");
         expect(testNode.childNodes[0].selectedIndex).toEqual(2);
         expect(testNode.childNodes[0]).toHaveTexts(["New caption", "A", "B"]);
 
-        // Show that caption will be blank if value is null
+        // Show that caption will be removed if value is null
         myCaption(null);
-        expect(testNode.childNodes[0].selectedIndex).toEqual(2);
-        expect(testNode.childNodes[0]).toHaveTexts(["", "A", "B"]);
+        expect(testNode.childNodes[0].selectedIndex).toEqual(1);
+        expect(testNode.childNodes[0]).toHaveTexts(["A", "B"]);
     });
 
     it('Should allow the option text to be given by an observable and update it when the model changes without affecting selection', function() {
@@ -152,5 +164,25 @@ describe('Binding: Options', function() {
         people[1].name("Bob");
         expect(testNode.childNodes[0].selectedIndex).toEqual(2);
         expect(testNode.childNodes[0]).toHaveTexts(["-", "Annie", "Bob"]);
+    });
+
+    it('Should call an optionsAfterRender callback function and not cause updates if an observable accessed in the callback is changed', function () {
+        testNode.innerHTML = "<select data-bind=\"options: someItems, optionsText: 'childprop', optionsAfterRender: callback\"></select>";
+        var callbackObservable = ko.observable(1),
+            someItems = ko.observableArray([{ childprop: 'first child' }]),
+            callbacks = 0;
+        ko.applyBindings({ someItems: someItems, callback: function() { callbackObservable(); callbacks++; } }, testNode);
+        expect(callbacks).toEqual(1);
+
+        // Change the array, but don't update the observableArray so that the options binding isn't updated
+        someItems().push({ childprop: 'hidden child'});
+        expect(testNode.childNodes[0]).toContainText('first child');
+        // Update callback observable and check that the binding wasn't updated
+        callbackObservable(2);
+        expect(testNode.childNodes[0]).toContainText('first child');
+        // Update the observableArray and verify that the binding is now updated
+        someItems.valueHasMutated();
+        expect(testNode.childNodes[0]).toContainText('first childhidden child');
+        expect(callbacks).toEqual(2);
     });
 });

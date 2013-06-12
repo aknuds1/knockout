@@ -20,15 +20,19 @@ ko.bindingHandlers['options'] = {
         while (element.length > 0) {
             element.remove(0);
         }
+
+        // Ensures that the binding processor doesn't try to bind the options
+        return { 'controlsDescendantBindings': true };
     },
     'update': function (element, valueAccessor, allBindingsAccessor) {
         var selectWasPreviouslyEmpty = element.length == 0;
-        var previousScrollTop = element.scrollTop;
+        var previousScrollTop = (!selectWasPreviouslyEmpty && element.multiple) ? element.scrollTop : null;
 
         var unwrappedArray = ko.utils.unwrapObservable(valueAccessor());
         var allBindings = allBindingsAccessor();
         var includeDestroyed = allBindings['optionsIncludeDestroyed'];
-        var caption = {};
+        var captionPlaceholder = {};
+        var captionValue;
         var previousSelectedValues;
         if (element.multiple) {
             previousSelectedValues = ko.utils.arrayMap(element.selectedOptions || ko.utils.arrayFilter(element.childNodes, function (node) {
@@ -51,7 +55,11 @@ ko.bindingHandlers['options'] = {
 
             // If caption is included, add it to the array
             if ('optionsCaption' in allBindings) {
-                filteredArray.unshift(caption);
+                captionValue = ko.utils.unwrapObservable(allBindings['optionsCaption']);
+                // If caption value is null or undefined, don't show a caption
+                if (captionValue !== null && captionValue !== undefined) {
+                    filteredArray.unshift(captionPlaceholder);
+                }
             }
         } else {
             // If a falsy value is provided (e.g. null), we'll simply empty the select element
@@ -77,8 +85,8 @@ ko.bindingHandlers['options'] = {
                 previousSelectedValues = oldOptions[0].selected && [ ko.selectExtensions.readValue(oldOptions[0]) ];
             }
             var option = document.createElement("option");
-            if (arrayEntry === caption) {
-                ko.utils.setHtml(option, allBindings['optionsCaption']);
+            if (arrayEntry === captionPlaceholder) {
+                ko.utils.setHtml(option, captionValue);
                 ko.selectExtensions.writeValue(option, undefined);
             } else {
                 // Apply a value to the option element
@@ -101,7 +109,15 @@ ko.bindingHandlers['options'] = {
             }
         }
 
-        ko.utils.setDomNodeChildrenFromArrayMapping(element, filteredArray, optionForArrayItem, null, setSelectionCallback);
+        var callback = setSelectionCallback;
+        if (allBindings['optionsAfterRender']) {
+            callback = function(arrayEntry, newOptions) {
+                setSelectionCallback(arrayEntry, newOptions);
+                ko.dependencyDetection.ignore(allBindings['optionsAfterRender'], null, [newOptions[0], arrayEntry !== captionPlaceholder ? arrayEntry : undefined]);
+            }
+        }
+
+        ko.utils.setDomNodeChildrenFromArrayMapping(element, filteredArray, optionForArrayItem, null, callback);
 
         // Clear previousSelectedValues so that future updates to individual objects don't get stale data
         previousSelectedValues = null;
@@ -116,7 +132,7 @@ ko.bindingHandlers['options'] = {
         // Workaround for IE bug
         ko.utils.ensureSelectElementIsRenderedCorrectly(element);
 
-        if (Math.abs(previousScrollTop - element.scrollTop) > 20)
+        if (previousScrollTop && Math.abs(previousScrollTop - element.scrollTop) > 20)
             element.scrollTop = previousScrollTop;
     }
 };
